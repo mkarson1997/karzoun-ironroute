@@ -1,0 +1,40 @@
+listen = "0.0.0.0:8080"
+max_body_bytes = 1048576
+max_in_flight = 512
+request_timeout_ms = 5000
+retry_attempts = 1
+
+[rate_limit]
+capacity = 100
+refill_per_second = 50.0
+max_entries = 10000
+idle_seconds = 300
+
+[health]
+interval_ms = 5000
+timeout_ms = 1500
+
+# HMAC secrets are never stored in this file. Enable this block and export
+# IRONROUTE_HMAC_SECRET with at least 32 bytes when protecting route prefixes.
+# [hmac]
+# secret_env = "IRONROUTE_HMAC_SECRET"
+# signature_header = "x-ironroute-signature"
+# timestamp_header = "x-ironroute-timestamp"
+# max_clock_skew_seconds = 60
+# protected_prefixes = ["/internal/", "/admin/"]
+
+[[upstreams]]
+name = "api-a"
+url = "http://127.0.0.1:9001"
+weight = 2
+health_path = "/healthz"
+failure_threshold = 5
+cooldown_ms = 5000
+
+[[upstreams]]
+name = "api-b"
+url = "http://127.0.0.1:9002"
+weight = 1
+health_path = "/healthz"
+failure_threshold = 5
+cooldown_ms = 5000

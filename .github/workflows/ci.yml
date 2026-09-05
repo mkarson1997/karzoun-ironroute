@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  rust:
+    name: Rust ${{ matrix.rust }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: ['1.97.1', '1.98.1']
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust toolchain
+        run: rustup toolchain install "${{ matrix.rust }}" --profile minimal --component clippy,rustfmt
+      - name: Select Rust toolchain
+        run: rustup override set "${{ matrix.rust }}"
+      - name: Formatting
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features --locked -- -D warnings
+      - name: Tests
+        run: cargo test --all-features --locked
+      - name: Release build
+        run: cargo build --release --locked
+
+  audit:
+    name: RustSec audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust 1.98.1
+        run: rustup toolchain install 1.98.1 --profile minimal && rustup override set 1.98.1
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: Audit dependency graph
+        run: cargo audit
+
+  deny:
+    name: Dependency policy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust 1.98.1
+        run: rustup toolchain install 1.98.1 --profile minimal && rustup override set 1.98.1
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+      - name: Enforce licenses, bans and advisories
+        run: cargo deny check
+
+  gate:
+    name: CI Gate
+    if: always()
+    needs: [rust, audit, deny]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Enforce required jobs
+        if: needs.rust.result != 'success' || needs.audit.result != 'success' || needs.deny.result != 'success'
+        run: exit 1
+      - name: Confirm green build
+        run: echo 'IronRoute CI gate passed.'
