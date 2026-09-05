@@ -179,8 +179,10 @@ async fn proxy(
             .client
             .request(parts.method.clone(), target)
             .headers(outbound_headers.clone());
+        let trusted_peer = peer.ip().to_string();
         request_builder = request_builder
-            .header("x-forwarded-for", peer.ip().to_string())
+            .header("x-forwarded-for", &trusted_peer)
+            .header("x-real-ip", &trusted_peer)
             .header("x-forwarded-proto", "http")
             .header("x-ironroute-upstream", &upstream.name);
 
@@ -223,7 +225,7 @@ async fn proxy(
     error_response(StatusCode::BAD_GATEWAY, "upstream request failed")
 }
 
-fn sanitize_headers(input: &HeaderMap, remove_host: bool) -> HeaderMap {
+fn sanitize_headers(input: &HeaderMap, outbound_request: bool) -> HeaderMap {
     let mut output = input.clone();
     if let Some(value) = input.get(header::CONNECTION)
         && let Ok(value) = value.to_str()
@@ -250,8 +252,18 @@ fn sanitize_headers(input: &HeaderMap, remove_host: bool) -> HeaderMap {
     ] {
         output.remove(name);
     }
-    if remove_host {
-        output.remove(header::HOST);
+    if outbound_request {
+        for name in [
+            header::HOST,
+            HeaderName::from_static("forwarded"),
+            HeaderName::from_static("x-forwarded-for"),
+            HeaderName::from_static("x-forwarded-host"),
+            HeaderName::from_static("x-forwarded-proto"),
+            HeaderName::from_static("x-forwarded-port"),
+            HeaderName::from_static("x-real-ip"),
+        ] {
+            output.remove(name);
+        }
     }
     output
 }
@@ -297,6 +309,22 @@ mod tests {
         let clean = sanitize_headers(&headers, false);
         assert!(!clean.contains_key(header::CONNECTION));
         assert!(!clean.contains_key("x-remove"));
+        assert_eq!(clean.get("x-keep").unwrap(), "yes");
+    }
+
+    #[test]
+    fn strips_client_forwarding_identity_on_upstream_requests() {
+        let mut headers = HeaderMap::new();
+        headers.insert("forwarded", HeaderValue::from_static("for=203.0.113.10"));
+        headers.insert("x-forwarded-for", HeaderValue::from_static("203.0.113.10"));
+        headers.insert("x-forwarded-proto", HeaderValue::from_static("https"));
+        headers.insert("x-real-ip", HeaderValue::from_static("203.0.113.10"));
+        headers.insert("x-keep", HeaderValue::from_static("yes"));
+        let clean = sanitize_headers(&headers, true);
+        assert!(!clean.contains_key("forwarded"));
+        assert!(!clean.contains_key("x-forwarded-for"));
+        assert!(!clean.contains_key("x-forwarded-proto"));
+        assert!(!clean.contains_key("x-real-ip"));
         assert_eq!(clean.get("x-keep").unwrap(), "yes");
     }
 
