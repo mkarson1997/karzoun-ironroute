@@ -1,0 +1,6 @@
+Karzoun IronRoute
+Copyright 2026 Mahmoud Karzoun
+
+Licensed under the Apache License, Version 2.0.
+
+This product includes third-party open-source software. Dependency licensing is checked in CI with cargo-deny; authoritative dependency notices and license texts remain those distributed by their respective upstream projects.
