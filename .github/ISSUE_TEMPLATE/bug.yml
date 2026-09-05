@@ -1,0 +1,37 @@
+name: Bug report
+description: Report a reproducible IronRoute defect
+title: "bug: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include credentials, private traffic captures, signing secrets or internal infrastructure details. Security vulnerabilities belong in private vulnerability reporting.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What happened and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: Provide a sanitized configuration and reproducible steps.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: IronRoute version
+      placeholder: v0.1.0 or commit SHA
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, architecture, Rust version if building from source, and relevant deployment details.
+    validations:
+      required: true

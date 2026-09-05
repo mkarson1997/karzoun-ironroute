@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use IronRoute in engineering work or research, please cite this software."
+title: "Karzoun IronRoute"
+type: software
+version: 0.1.0
+date-released: 2026-09-05
+authors:
+  - family-names: Karzoun
+    given-names: Mahmoud
+repository-code: "https://github.com/mkarson1997/karzoun-ironroute"
+url: "https://github.com/mkarson1997/karzoun-ironroute"
+license: Apache-2.0
+keywords:
+  - rust
+  - edge-gateway
+  - reverse-proxy
+  - resilience
+  - circuit-breaker
+  - rate-limiting
+  - security
