@@ -6,7 +6,7 @@ use std::{
 
 use axum::{
     Router,
-    body::{Body, Bytes, to_bytes},
+    body::{Body, to_bytes},
     extract::{ConnectInfo, State},
     http::{HeaderMap, HeaderName, Method, Request, Response, StatusCode, header},
     response::IntoResponse,
@@ -240,7 +240,7 @@ fn sanitize_headers(input: &HeaderMap, remove_host: bool) -> HeaderMap {
     }
     for name in [
         header::CONNECTION,
-        header::KEEP_ALIVE,
+        HeaderName::from_static("keep-alive"),
         header::PROXY_AUTHENTICATE,
         header::PROXY_AUTHORIZATION,
         header::TE,
