@@ -28,9 +28,7 @@ async fn upstream_echo(headers: HeaderMap, body: Bytes) -> String {
     )
 }
 
-async fn start_gateway(
-    max_body_bytes: usize,
-) -> (SocketAddr, JoinHandle<()>, JoinHandle<()>) {
+async fn start_gateway(max_body_bytes: usize) -> (SocketAddr, JoinHandle<()>, JoinHandle<()>) {
     let upstream_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let upstream_addr = upstream_listener.local_addr().unwrap();
     let upstream_app = Router::new()
