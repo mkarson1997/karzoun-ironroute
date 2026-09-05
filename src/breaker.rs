@@ -1,4 +1,7 @@
-use std::{sync::Mutex, time::{Duration, Instant}};
+use std::{
+    sync::Mutex,
+    time::{Duration, Instant},
+};
 
 #[derive(Debug)]
 pub struct CircuitBreaker {
@@ -26,7 +29,11 @@ impl CircuitBreaker {
         Self {
             failure_threshold,
             cooldown,
-            inner: Mutex::new(Inner { failures: 0, open_until: None, half_open_in_flight: false }),
+            inner: Mutex::new(Inner {
+                failures: 0,
+                open_until: None,
+                half_open_in_flight: false,
+            }),
         }
     }
 

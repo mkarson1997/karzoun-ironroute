@@ -15,7 +15,12 @@ pub fn spawn_health_checks(pool: Arc<UpstreamPool>, client: Client, config: Heal
                     upstream.set_healthy(false);
                     continue;
                 };
-                let healthy = match client.get(url).timeout(Duration::from_millis(config.timeout_ms)).send().await {
+                let healthy = match client
+                    .get(url)
+                    .timeout(Duration::from_millis(config.timeout_ms))
+                    .send()
+                    .await
+                {
                     Ok(response) => response.status().is_success(),
                     Err(error) => {
                         debug!(upstream = %upstream.name, %error, "health check failed");
@@ -24,7 +29,9 @@ pub fn spawn_health_checks(pool: Arc<UpstreamPool>, client: Client, config: Heal
                 };
                 let previous = upstream.is_healthy();
                 upstream.set_healthy(healthy);
-                if previous && !healthy { warn!(upstream = %upstream.name, "upstream became unhealthy"); }
+                if previous && !healthy {
+                    warn!(upstream = %upstream.name, "upstream became unhealthy");
+                }
             }
         }
     });

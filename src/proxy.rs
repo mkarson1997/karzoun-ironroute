@@ -1,4 +1,8 @@
-use std::{net::SocketAddr, sync::Arc, time::{Duration, Instant}};
+use std::{
+    net::SocketAddr,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use axum::{
     Router,
@@ -43,13 +47,32 @@ impl AppState {
         let verifier = if let Some(hmac) = &config.hmac {
             let secret = std::env::var(&hmac.secret_env)
                 .map_err(|_| format!("HMAC is enabled but {} is not set", hmac.secret_env))?;
-            if secret.len() < 32 { return Err("HMAC secret must contain at least 32 bytes".into()); }
-            Some(Arc::new(HmacVerifier::from_config(hmac, secret.into_bytes())?))
-        } else { None };
+            if secret.len() < 32 {
+                return Err("HMAC secret must contain at least 32 bytes".into());
+            }
+            Some(Arc::new(HmacVerifier::from_config(
+                hmac,
+                secret.into_bytes(),
+            )?))
+        } else {
+            None
+        };
         let limiter = Arc::new(RateLimiter::new(config.rate_limit.clone()));
         let semaphore = Arc::new(Semaphore::new(config.max_in_flight));
-        let state = Self { config: Arc::new(config), pool, limiter, verifier, client, semaphore, metrics: Arc::new(Metrics::default()) };
-        spawn_health_checks(state.pool.clone(), state.client.clone(), state.config.health.clone());
+        let state = Self {
+            config: Arc::new(config),
+            pool,
+            limiter,
+            verifier,
+            client,
+            semaphore,
+            metrics: Arc::new(Metrics::default()),
+        };
+        spawn_health_checks(
+            state.pool.clone(),
+            state.client.clone(),
+            state.config.health.clone(),
+        );
         Ok(state)
     }
 
@@ -63,14 +86,23 @@ impl AppState {
     }
 }
 
-async fn healthz() -> StatusCode { StatusCode::OK }
+async fn healthz() -> StatusCode {
+    StatusCode::OK
+}
 
 async fn readyz(State(state): State<AppState>) -> StatusCode {
-    if state.pool.any_ready() { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE }
+    if state.pool.any_ready() {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    }
 }
 
 async fn metrics(State(state): State<AppState>) -> impl IntoResponse {
-    ([ (header::CONTENT_TYPE, "text/plain; version=0.0.4") ], state.metrics.render())
+    (
+        [(header::CONTENT_TYPE, "text/plain; version=0.0.4")],
+        state.metrics.render(),
+    )
 }
 
 async fn proxy(
@@ -96,14 +128,22 @@ async fn proxy(
         }
         Decision::Saturated => {
             state.metrics.rate_limited();
-            return error_response(StatusCode::SERVICE_UNAVAILABLE, "rate limiter capacity exhausted");
+            return error_response(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "rate limiter capacity exhausted",
+            );
         }
     }
 
     let (parts, body) = request.into_parts();
     let body = match to_bytes(body, state.config.max_body_bytes).await {
         Ok(body) => body,
-        Err(_) => return error_response(StatusCode::PAYLOAD_TOO_LARGE, "request body exceeds configured limit"),
+        Err(_) => {
+            return error_response(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "request body exceeds configured limit",
+            );
+        }
     };
 
     if let Some(verifier) = &state.verifier
@@ -116,19 +156,29 @@ async fn proxy(
     }
 
     let retryable = is_idempotent(&parts.method);
-    let retries = if retryable { state.config.retry_attempts } else { 0 };
+    let retries = if retryable {
+        state.config.retry_attempts
+    } else {
+        0
+    };
     let outbound_headers = sanitize_headers(&parts.headers, true);
 
     for attempt in 0..=retries {
         let Some(upstream) = state.pool.select() else {
-            return error_response(StatusCode::SERVICE_UNAVAILABLE, "no healthy upstream available");
+            return error_response(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "no healthy upstream available",
+            );
         };
         let Ok(target) = upstream.target_url(&parts.uri) else {
             upstream.breaker.on_failure(Instant::now());
             return error_response(StatusCode::BAD_GATEWAY, "failed to construct upstream URL");
         };
 
-        let mut request_builder = state.client.request(parts.method.clone(), target).headers(outbound_headers.clone());
+        let mut request_builder = state
+            .client
+            .request(parts.method.clone(), target)
+            .headers(outbound_headers.clone());
         request_builder = request_builder
             .header("x-forwarded-for", peer.ip().to_string())
             .header("x-forwarded-proto", "http")
@@ -178,21 +228,39 @@ fn sanitize_headers(input: &HeaderMap, remove_host: bool) -> HeaderMap {
     if let Some(value) = input.get(header::CONNECTION)
         && let Ok(value) = value.to_str()
     {
-        for token in value.split(',').map(str::trim).filter(|value| !value.is_empty()) {
-            if let Ok(name) = HeaderName::from_bytes(token.as_bytes()) { output.remove(name); }
+        for token in value
+            .split(',')
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            if let Ok(name) = HeaderName::from_bytes(token.as_bytes()) {
+                output.remove(name);
+            }
         }
     }
     for name in [
-        header::CONNECTION, header::KEEP_ALIVE, header::PROXY_AUTHENTICATE,
-        header::PROXY_AUTHORIZATION, header::TE, header::TRAILER,
-        header::TRANSFER_ENCODING, header::UPGRADE,
-    ] { output.remove(name); }
-    if remove_host { output.remove(header::HOST); }
+        header::CONNECTION,
+        header::KEEP_ALIVE,
+        header::PROXY_AUTHENTICATE,
+        header::PROXY_AUTHORIZATION,
+        header::TE,
+        header::TRAILER,
+        header::TRANSFER_ENCODING,
+        header::UPGRADE,
+    ] {
+        output.remove(name);
+    }
+    if remove_host {
+        output.remove(header::HOST);
+    }
     output
 }
 
 fn is_idempotent(method: &Method) -> bool {
-    matches!(*method, Method::GET | Method::HEAD | Method::OPTIONS | Method::PUT | Method::DELETE)
+    matches!(
+        *method,
+        Method::GET | Method::HEAD | Method::OPTIONS | Method::PUT | Method::DELETE
+    )
 }
 
 async fn backoff(attempt: usize) {
@@ -204,7 +272,10 @@ async fn backoff(attempt: usize) {
 fn error_response(status: StatusCode, message: &'static str) -> Response<Body> {
     let mut response = Response::new(Body::from(message));
     *response.status_mut() = status;
-    response.headers_mut().insert(header::CONTENT_TYPE, header::HeaderValue::from_static("text/plain; charset=utf-8"));
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        header::HeaderValue::from_static("text/plain; charset=utf-8"),
+    );
     response
 }
 

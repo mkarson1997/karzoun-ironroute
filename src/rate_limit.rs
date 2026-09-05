@@ -1,4 +1,7 @@
-use std::{collections::HashMap, time::{Duration, Instant}};
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 use tokio::sync::Mutex;
 
 use crate::config::RateLimitConfig;
@@ -25,7 +28,10 @@ pub enum Decision {
 
 impl RateLimiter {
     pub fn new(config: RateLimitConfig) -> Self {
-        Self { config, buckets: Mutex::new(HashMap::new()) }
+        Self {
+            config,
+            buckets: Mutex::new(HashMap::new()),
+        }
     }
 
     pub async fn check(&self, key: &str) -> Decision {
@@ -67,7 +73,12 @@ mod tests {
 
     #[tokio::test]
     async fn enforces_capacity() {
-        let limiter = RateLimiter::new(RateLimitConfig { capacity: 2, refill_per_second: 0.01, max_entries: 10, idle_seconds: 60 });
+        let limiter = RateLimiter::new(RateLimitConfig {
+            capacity: 2,
+            refill_per_second: 0.01,
+            max_entries: 10,
+            idle_seconds: 60,
+        });
         assert_eq!(limiter.check("client").await, Decision::Allow);
         assert_eq!(limiter.check("client").await, Decision::Allow);
         assert_eq!(limiter.check("client").await, Decision::Limited);
@@ -75,7 +86,12 @@ mod tests {
 
     #[tokio::test]
     async fn bounds_identity_cardinality() {
-        let limiter = RateLimiter::new(RateLimitConfig { capacity: 1, refill_per_second: 1.0, max_entries: 1, idle_seconds: 60 });
+        let limiter = RateLimiter::new(RateLimitConfig {
+            capacity: 1,
+            refill_per_second: 1.0,
+            max_entries: 1,
+            idle_seconds: 60,
+        });
         assert_eq!(limiter.check("a").await, Decision::Allow);
         assert_eq!(limiter.check("b").await, Decision::Saturated);
     }

@@ -2,11 +2,18 @@ use std::net::SocketAddr;
 
 use axum::extract::connect_info::IntoMakeServiceWithConnectInfo;
 use clap::{Parser, Subcommand};
-use karzoun_ironroute::{config::Config, proxy::{AppState, describe_startup}};
+use karzoun_ironroute::{
+    config::Config,
+    proxy::{AppState, describe_startup},
+};
 use tracing_subscriber::EnvFilter;
 
 #[derive(Debug, Parser)]
-#[command(name = "ironroute", version, about = "Adaptive Rust edge gateway and resilience engine")]
+#[command(
+    name = "ironroute",
+    version,
+    about = "Adaptive Rust edge gateway and resilience engine"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -28,7 +35,10 @@ enum Command {
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     tracing_subscriber::fmt()
         .json()
-        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("ironroute=info,karzoun_ironroute=info")))
+        .with_env_filter(
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| EnvFilter::new("ironroute=info,karzoun_ironroute=info")),
+        )
         .init();
 
     match Cli::parse().command {
@@ -43,7 +53,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             let app = AppState::new(config)?.router();
             let listener = tokio::net::TcpListener::bind(listen).await?;
             tracing::info!(%listen, "IronRoute listening");
-            let service: IntoMakeServiceWithConnectInfo<_, SocketAddr> = app.into_make_service_with_connect_info();
+            let service: IntoMakeServiceWithConnectInfo<_, SocketAddr> =
+                app.into_make_service_with_connect_info();
             axum::serve(listener, service)
                 .with_graceful_shutdown(shutdown_signal())
                 .await?;
