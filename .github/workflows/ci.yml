@@ -16,7 +16,7 @@ jobs:
       matrix:
         rust: ['1.97.1', '1.98.1']
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Install Rust toolchain
         run: rustup toolchain install "${{ matrix.rust }}" --profile minimal --component clippy,rustfmt
       - name: Select Rust toolchain
@@ -36,7 +36,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Install Rust 1.98.1
         run: rustup toolchain install 1.98.1 --profile minimal && rustup override set 1.98.1
       - name: Install cargo-audit
@@ -50,7 +50,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Install Rust 1.98.1
         run: rustup toolchain install 1.98.1 --profile minimal && rustup override set 1.98.1
       - name: Install cargo-deny
