@@ -2,7 +2,6 @@ name: Release
 
 on:
   push:
-    branches: [main]
     tags: ['v*']
   pull_request:
     paths:
@@ -27,33 +26,9 @@ jobs:
       - name: Build production container
         run: docker build --build-arg VERSION=pr-validation -t ironroute:pr-validation .
 
-  bootstrap-v0-1-0:
-    name: Bootstrap v0.1.0 tag
-    if: github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, 'prepare IronRoute v0.1.0 release')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - name: Create release tag exactly once
-        shell: bash
-        run: |
-          set -euo pipefail
-          if git ls-remote --exit-code --tags origin refs/tags/v0.1.0 >/dev/null 2>&1; then
-            echo 'v0.1.0 already exists.'
-            exit 0
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git tag -a v0.1.0 -m 'Karzoun IronRoute v0.1.0'
-          git push origin v0.1.0
-
   build:
     name: Release binary (${{ matrix.os }})
-    needs: [bootstrap-v0-1-0]
-    if: always() && (startsWith(github.ref, 'refs/tags/v') || (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, 'prepare IronRoute v0.1.0 release')))
+    if: startsWith(github.ref, 'refs/tags/v')
     strategy:
       fail-fast: false
       matrix:
@@ -65,7 +40,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          ref: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v0.1.0' }}
+          ref: ${{ github.ref_name }}
       - name: Install Rust 1.98.1
         shell: bash
         run: rustup toolchain install 1.98.1 --profile minimal && rustup override set 1.98.1
@@ -73,11 +48,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            VERSION='0.1.0'
-          fi
+          VERSION="${GITHUB_REF_NAME#v}"
           cargo build --release --locked
           TARGET="$(rustc -vV | sed -n 's/^host: //p')"
           mkdir -p dist
@@ -95,8 +66,8 @@ jobs:
 
   publish:
     name: Publish GitHub Release and GHCR image
-    needs: [bootstrap-v0-1-0, build]
-    if: always() && needs.build.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, 'prepare IronRoute v0.1.0 release')))
+    needs: [build]
+    if: needs.build.result == 'success' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -105,7 +76,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          ref: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v0.1.0' }}
+          ref: ${{ github.ref_name }}
       - uses: actions/download-artifact@v5
         with:
           pattern: binary-*
@@ -116,15 +87,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            REF="${GITHUB_REF_NAME}"
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            REF='v0.1.0'
-            VERSION='0.1.0'
-          fi
-          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "ref=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
       - name: Generate SHA-256 manifest
         shell: bash
         run: |
