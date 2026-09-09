@@ -9,6 +9,40 @@
 
 IronRoute is project **04/41** in the Karzoun engineering portfolio. It demonstrates networking, concurrency and resilience engineering in Rust through a working gateway rather than a synthetic algorithm demo.
 
+## Architecture at a glance
+
+```mermaid
+flowchart LR
+    C[Client] --> I[Ingress limits + identity normalization]
+    I --> A[Optional HMAC verification]
+    A --> R[Health-aware router]
+    R --> B[Circuit breaker + retry policy]
+    B --> U1[Upstream A]
+    B --> U2[Upstream B]
+    B --> U3[Upstream N]
+    H[Active health checks] --> R
+    G[Global in-flight limit] --> I
+    R --> O[Tracing + Prometheus metrics]
+```
+
+The request path is intentionally layered: bound incoming work, normalize untrusted forwarding identity, verify protected routes when configured, select only viable upstreams, apply resilience policy, and expose the result through health/readiness and metrics surfaces.
+
+## Engineering proof points
+
+| Area | What the repository demonstrates |
+| --- | --- |
+| Async networking | Tokio/Axum/Reqwest reverse-proxy path with socket-level end-to-end tests. |
+| Adaptive routing | Health-aware weighted upstream selection plus active health checks. |
+| Failure isolation | Per-upstream circuit breakers with half-open recovery. |
+| Overload control | Token-bucket rate limiting, bounded identity cardinality, global concurrency limits and immediate load shedding. |
+| Retry correctness | Retries are restricted to semantically idempotent HTTP methods in v0.1. |
+| Request integrity | HMAC-SHA256 protected prefixes with timestamp skew validation and body hashing. |
+| Proxy security | Hop-by-hop header sanitization and forwarding identity rebuilt from the TCP peer. |
+| Operational readiness | `/healthz`, `/readyz`, Prometheus metrics, structured JSON tracing and graceful shutdown. |
+| Dependency security | RustSec `cargo audit` plus `cargo-deny` license/advisory/ban/source policy. |
+| Supply-chain security | Third-party GitHub Actions are pinned to reviewed immutable commit SHAs. |
+| Distribution | Locked multi-OS native builds plus GHCR image with SHA-256 manifests, SBOM and provenance metadata. |
+
 ## v0.1 capabilities
 
 - async HTTP reverse proxy built on Tokio/Axum/Reqwest
@@ -114,6 +148,12 @@ locked release build
 RustSec cargo-audit
 cargo-deny licenses/advisories/bans/sources
 ```
+
+Third-party actions used by CI and release workflows are pinned to reviewed immutable commit SHAs. Release validation also proves the locked native build and production container build before publication logic changes merge.
+
+## Architecture
+
+See [`docs/architecture.md`](docs/architecture.md) for request-path trust boundaries, resilience invariants and failure semantics.
 
 ## Explicit boundaries
 
